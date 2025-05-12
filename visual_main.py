@@ -2,6 +2,56 @@ import simpy
 from Models.intersection import Intersection
 from Models.vehicles import Vehicle
 from visualization.visual_simulation import VisualAdapter
+import random
+
+def setup_vehicle_generator(env, intersection):
+    """
+    Sets up a continuous vehicle generator process that creates vehicles
+    with random properties at random intervals throughout the simulation.
+
+    Args:
+        env: SimPy environment
+        intersection: Intersection instance
+    """
+    def vehicle_generator():
+        vehicle_id = 1
+
+        # Define possible vehicle routes
+        directions = ['N', 'S', 'E', 'W']
+
+        while True:
+            # Random arrival time interval between 1-5 time units
+            arrival_interval = random.uniform(1, 5)
+            yield env.timeout(arrival_interval)
+
+            # Generate random vehicle properties
+            source = random.choice(directions)
+
+            # Avoid having the destination be the same as the source
+            possible_destinations = [d for d in directions if d != source]
+            destination = random.choice(possible_destinations)
+
+            # 20% chance of priority vehicle
+            priority = 1 if random.random() < 0.2 else 0
+
+            # Create and add the vehicle
+            Vehicle(
+                env=env,
+                id=vehicle_id,
+                at=env.now,
+                source=source,
+                destination=destination,
+                intersection=intersection,
+                prio=priority
+            )
+
+            print(f"Vehicle {vehicle_id}: {source}->{destination} Status waiting, "
+                  f"Arrival Time {env.now}, Wait Time 0, Priority {priority}")
+
+            vehicle_id += 1
+
+    # Start the generator process
+    return env.process(vehicle_generator())
 
 def main():
     # Create simulation environment
@@ -40,9 +90,13 @@ def main():
                 intersection=intersection, prio=0)
     ]
 
+    #vehicle_gen_process = setup_vehicle_generator(env, intersection)
+
     # Run visual simulation
     print("Starting visual traffic simulation")
-    visual_adapter.run_visual_simulation(duration=20, fps=2)
+    # visual_adapter.start_rendering_loop(fps=5)
+
+    visual_adapter.run_visual_simulation(duration=20)
 
     # Print final statistics
     print("\n=== Final Statistics ===")

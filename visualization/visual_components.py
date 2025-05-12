@@ -101,16 +101,13 @@ class TrafficVisualizer:
                 light_positions = {
                     'N': (self.width/2 + 60, self.height/2 - 70),  # North
                     'S': (self.width/2 - 60, self.height/2 + 70),  # South
-                    'E': (self.width/2 - 70, self.height/2 - 60),  # East
-                    'W': (self.width/2 + 70, self.height/2 + 60),  # West
+                    'E': (self.width/2 + 70, self.height/2 + 60),  # East
+                    'W': (self.width/2 - 70, self.height/2 - 60),  # West
                 }
 
                 for direction, position in light_positions.items():
-                    # Determine if this is a vertical (N/S) or horizontal (E/W) road
                     is_vertical = direction in ['N', 'S']
 
-                    # Draw traffic light box (black rectangle)
-                    # For vertical roads, make the box horizontal
                     if is_vertical:
                         box_rect = pygame.Rect(position[0] - light_box_width/2,
                                             position[1] - light_box_height/2,
@@ -139,10 +136,10 @@ class TrafficVisualizer:
                     pygame.draw.circle(self.screen, (100, 100, 0), yellow_pos, light_radius)  # Dimmed yellow
                     pygame.draw.circle(self.screen, (0, 100, 0), green_pos, light_radius)  # Dimmed green
 
-                    # Highlight the active light
+                    #Active light
                     if self.light_states[direction] == 'green':
                         pygame.draw.circle(self.screen, self.green, green_pos, light_radius)
-                    else:
+                    elif self.light_states[direction] == 'red':
                         pygame.draw.circle(self.screen, self.red, red_pos, light_radius)
 
                     # Add direction label
@@ -160,6 +157,8 @@ class TrafficVisualizer:
 
         # Adjust vehicle spacing - increase or decrease these values to change spacing
         vehicle_spacing = 80
+
+        bold_font = pygame.font.SysFont('Arial', 18, bold=True)
 
         queue_positions = {
             'N': {'x': self.width / 2 + lane_offset, 'y': self.height / 2 - 150, 'dx': 0, 'dy': -vehicle_spacing,
@@ -191,8 +190,8 @@ class TrafficVisualizer:
                 self.screen.blit(rotated_car, car_rect)
 
                 # Draw vehicle ID and destination
-                text = self.font.render(f"{vehicle.id}->{vehicle.destination}", True, self.black)
-                text_rect = text.get_rect(center=(x, y - 30))  # Position text above car
+                text = bold_font.render(f"{vehicle.id} : {vehicle.source}->{vehicle.destination}", True, self.black)
+                text_rect = text.get_rect(center=(x, y - 45))  # Position text above car
                 self.screen.blit(text, text_rect)
 
     def draw_simulation_info(self):

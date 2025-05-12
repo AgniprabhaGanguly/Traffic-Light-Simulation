@@ -3,86 +3,100 @@ import sys
 import time
 from visualization.visual_components import TrafficVisualizer
 
-
 class VisualAdapter:
     def __init__(self, intersection, env):
         self.visualizer = TrafficVisualizer()
         self.intersection = intersection
         self.env = env
-        self.light_states = {'N': 'red', 'S': 'red', 'E': 'red', 'W': 'red'}
+
+        # Initialize the visualizer with our light states
+        self.visualizer.light_states = {'N': 'red', 'S': 'red', 'E': 'red', 'W': 'red'}
 
         # Hook into intersection methods to track light state changes
         self._patch_intersection()
 
     def _patch_intersection(self):
-        """Monkey patch the intersection to track light changes"""
-        original_scheduler = self.intersection.scheduler
-
         def wrapped_scheduler():
+            print("==== Wrapped scheduler started! ====")
             directions = ['N', 'S', 'E', 'W']
             current_direction_index = 0
 
             while True:
-                # Update visualization before making decisions
-                self._update_visualization()
-
                 current_direction = directions[current_direction_index]
 
+                # Check if there are vehicles in the current direction
                 if not self.intersection.queues[current_direction]:
+                    # No vehicles in this direction, move to the next one
                     current_direction_index = (current_direction_index + 1) % 4
-                    yield self.env.timeout(1)
+                    yield self.env.timeout(1)  # Small delay to avoid tight loop
                     continue
 
-                # Turn current direction green
+                # Turn the current direction green
                 self.intersection.traffic_lights[current_direction].release(
                     self.intersection.red_lights[current_direction])
-                self.light_states[current_direction] = 'green'  # Track light state
-                print(f'Time {self.env.now:.1f}: Direction : {current_direction} turns green')
+                self.visualizer.light_states[current_direction] = 'green'
+                print(
+                    f"DEBUG - Loop start: Time {self.env.now:.1f}, current_direction={current_direction}, Light states: {self.visualizer.light_states}")
+                self._update_visualization()
 
+                # Process the green light for the time quantum or until the queue is empty
                 time_count = 1
                 while time_count <= self.intersection.time_quantum:
                     yield self.env.timeout(1)
-                    self._update_visualization()  # Update after each time step
+                    self._update_visualization()
                     time_count += 1
 
+                    # Check if the queue is empty
                     if not self.intersection.queues[current_direction]:
                         break
 
+                    # Check for priority in other directions
                     current_prio = sum(vehicle.prio for vehicle in self.intersection.queues[current_direction])
                     priority_dir_index = self.intersection.check_prio_queue(current_prio, current_direction)
 
                     if priority_dir_index is not None:
-                        self.intersection.red_lights[current_direction] = self.intersection.traffic_lights[
-                            current_direction].request()
-                        yield self.intersection.red_lights[current_direction]
-                        self.light_states[current_direction] = 'red'  # Track light state
-                        print(f'Time {self.env.now:.1f}: Direction : {current_direction} turns red')
-
-                        current_direction_index = priority_dir_index
+                        # Priority detected, switch to that direction
                         break
 
+                # Turn the current direction red
                 if current_direction not in self.intersection.red_lights:
                     self.intersection.red_lights[current_direction] = self.intersection.traffic_lights[
                         current_direction].request()
                     yield self.intersection.red_lights[current_direction]
-                    self.light_states[current_direction] = 'red'  # Track light state
-                    print(f'Time {self.env.now:.1f}: Direction : {current_direction} turns red')
+                self.visualizer.light_states[current_direction] = 'red'
+                self._update_visualization()
 
-                if priority_dir_index is None:
+                # Update the direction index
+                if priority_dir_index is not None:
+                    current_direction_index = priority_dir_index
+                else:
                     current_direction_index = (current_direction_index + 1) % 4
 
         self.intersection.scheduler = wrapped_scheduler
+        self.intersection.scheduler_process = self.env.process(wrapped_scheduler())
 
     def _update_visualization(self):
-        """Update the visualization state"""
-        self.visualizer.light_states = self.light_states.copy()
         self.visualizer.vehicle_queues = self.intersection.queues.copy()
         self.visualizer.simulation_time = self.env.now
+        self.visualizer.render(self.env.now)
 
-    def run_visual_simulation(self, duration=100, fps=5):
-        """Run the simulation with visualization"""
+    def run_visual_simulation(self, duration=100):
         print(f"Running visual simulation for {duration} time units")
+        self.env.run(until=duration)
+        print(f"Visual simulation ended at time {self.env.now:.1f}")
 
+    # def start_rendering_loop(self, fps=5):
+    #     def rendering():
+    #         while self.visualizer.running:
+    #             self._update_visualization()
+    #             self.visualizer.render(self.env.now)
+    #             yield self.env.timeout(1 / fps)
+    #
+    #     self.env.process(rendering())
+
+    #
+    def run_visual_simulation(self, duration=100, fps=5):
+        print(f"Running visual simulation for {duration} time units")
         # Start simulation in step mode
         step_delay = 1 / fps  # Time between steps
 

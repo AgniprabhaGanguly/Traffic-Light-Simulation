@@ -18,7 +18,7 @@ class Intersection:
             'E': [],
             'W': []
         }
-        self.time_quantum = 10
+        self.time_quantum = 5
 
         # Start with all lights red (locked)
         self.red_lights = {}
@@ -67,6 +67,9 @@ class Intersection:
 
                 # Skip if no vehicle is waiting
                 if not self.queues[current_direction]:
+                    self.red_lights[current_direction] = self.traffic_lights[current_direction].request()
+                    yield self.red_lights[current_direction]
+                    print(f'Time {self.env.now:.1f}: Direction : {current_direction} turns red')
                     break
 
                 #check for priority preemption
